@@ -120,6 +120,20 @@ export interface ParsedBillingEmail {
   matchedSubscriptionId?: string
 }
 
+export interface ParsedImapEmail {
+  messageId: string
+  from: string
+  subject: string
+  date: Date | string
+  amount: number
+  currency: string
+  serviceName: string
+  billingPeriod: string
+  confidence: number
+  rawSnippet: string
+  suggestedProjectId: string
+}
+
 export interface SubscriptionFormValues {
   name: string
   project_id: string
