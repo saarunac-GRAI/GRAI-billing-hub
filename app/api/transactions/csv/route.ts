@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
 
   // Insert (skip duplicates by checking date+description+amount)
   let inserted = 0
-  let skipped = 0
+  const duplicates: { date: string; description: string; amount: number }[] = []
 
   for (const tx of toInsert) {
     const { data: existing } = await supabase
@@ -175,10 +175,12 @@ export async function POST(request: NextRequest) {
       .eq('date', tx.date)
       .eq('description', tx.description)
       .eq('amount', tx.amount)
-      .eq('account_id', source)
       .limit(1)
 
-    if (existing?.length) { skipped++; continue }
+    if (existing?.length) {
+      duplicates.push({ date: tx.date, description: tx.description, amount: tx.amount })
+      continue
+    }
 
     const { error } = await supabase.from('transactions').insert(tx)
     if (!error) inserted++
@@ -187,8 +189,8 @@ export async function POST(request: NextRequest) {
   await supabase.from('logs').insert({
     event_type: 'csv_imported',
     entity_type: 'transaction',
-    description: `CSV import (${format}): ${inserted} imported, ${skipped} duplicates skipped`,
+    description: `CSV import (${format}): ${inserted} imported, ${duplicates.length} duplicates skipped`,
   })
 
-  return NextResponse.json({ imported: inserted, skipped, total: rawTxs.length, format })
+  return NextResponse.json({ imported: inserted, skipped: duplicates.length, duplicates, total: rawTxs.length, format })
 }

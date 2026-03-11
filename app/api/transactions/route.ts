@@ -29,6 +29,24 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(data)
 }
 
+export async function DELETE(request: NextRequest) {
+  const supabase = createAdminClient()
+  const { searchParams } = new URL(request.url)
+  const id = searchParams.get('id')
+
+  if (id) {
+    // Delete single transaction
+    const { error } = await supabase.from('transactions').delete().eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ deleted: 1 })
+  }
+
+  // Clear all transactions
+  const { error, count } = await supabase.from('transactions').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ deleted: count ?? 0 })
+}
+
 export async function PATCH(request: NextRequest) {
   const supabase = createAdminClient()
   const { id, classification, project_id } = await request.json()

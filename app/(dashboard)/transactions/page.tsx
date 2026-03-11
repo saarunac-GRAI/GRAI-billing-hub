@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import type { Transaction, Project } from '@/types'
 import { formatCurrency } from '@/lib/utils'
-import { Upload, Pencil, RefreshCw } from 'lucide-react'
+import { Upload, Pencil, RefreshCw, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 
 const classVariant: Record<string, 'success' | 'warning' | 'muted'> = {
   project: 'success',
@@ -13,12 +13,21 @@ const classVariant: Record<string, 'success' | 'warning' | 'muted'> = {
   uncategorized: 'muted',
 }
 
+type UploadResult = {
+  imported: number
+  skipped: number
+  duplicates: { date: string; description: string; amount: number }[]
+  format: string
+}
+
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
-  const [uploadResult, setUploadResult] = useState<{ imported: number; skipped: number; format: string } | null>(null)
+  const [clearing, setClearing] = useState(false)
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null)
+  const [showDuplicates, setShowDuplicates] = useState(false)
   const [filter, setFilter] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editClass, setEditClass] = useState('')
@@ -44,6 +53,7 @@ export default function TransactionsPage() {
     if (!file) return
     setUploading(true)
     setUploadResult(null)
+    setShowDuplicates(false)
 
     const form = new FormData()
     form.append('file', file)
@@ -60,6 +70,15 @@ export default function TransactionsPage() {
     }
     setUploading(false)
     if (fileRef.current) fileRef.current.value = ''
+  }
+
+  async function clearAll() {
+    if (!confirm('Delete all transactions? This cannot be undone.')) return
+    setClearing(true)
+    await fetch('/api/transactions', { method: 'DELETE' })
+    setClearing(false)
+    setUploadResult(null)
+    await loadTransactions()
   }
 
   const handleFilterChange = useCallback((cls: string) => {
@@ -102,13 +121,34 @@ export default function TransactionsPage() {
 
         {/* Upload result */}
         {uploadResult && (
-          <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800 flex items-center justify-between">
-            <span>
-              Imported <strong>{uploadResult.imported}</strong> transactions
-              {uploadResult.skipped > 0 && ` · ${uploadResult.skipped} duplicates skipped`}
-              {' '}· Format detected: <strong>{uploadResult.format}</strong>
-            </span>
-            <button onClick={() => setUploadResult(null)} className="text-green-500 hover:text-green-700">✕</button>
+          <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <span>
+                Imported <strong>{uploadResult.imported}</strong> new transaction{uploadResult.imported !== 1 ? 's' : ''}
+                {uploadResult.skipped > 0 && (
+                  <button
+                    onClick={() => setShowDuplicates(v => !v)}
+                    className="ml-2 inline-flex items-center gap-1 text-amber-700 underline underline-offset-2 hover:text-amber-900"
+                  >
+                    · {uploadResult.skipped} already captured
+                    {showDuplicates ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  </button>
+                )}
+                {' '}· Format: <strong>{uploadResult.format}</strong>
+              </span>
+              <button onClick={() => setUploadResult(null)} className="text-green-500 hover:text-green-700">✕</button>
+            </div>
+            {showDuplicates && uploadResult.duplicates.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1 max-h-48 overflow-y-auto">
+                <p className="text-xs font-semibold text-amber-800 mb-1">Already captured (ignored):</p>
+                {uploadResult.duplicates.map((d, i) => (
+                  <div key={i} className="flex justify-between text-xs text-amber-700">
+                    <span>{d.date} — {d.description}</span>
+                    <span className="font-medium">{formatCurrency(d.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -156,6 +196,9 @@ export default function TransactionsPage() {
             </Button>
             <Button size="sm" variant="secondary" onClick={() => loadTransactions(filter || undefined)}>
               <RefreshCw size={14} />
+            </Button>
+            <Button size="sm" variant="secondary" onClick={clearAll} loading={clearing}>
+              <Trash2 size={14} /> Clear All
             </Button>
           </div>
         </div>

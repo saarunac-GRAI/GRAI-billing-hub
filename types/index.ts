@@ -84,6 +84,12 @@ export interface DashboardSummary {
   upcomingRenewals: UpcomingRenewal[]
   costByProject: CostByProject[]
   monthlyTrend: MonthlyTrend[]
+  thisMonthTx: {
+    projectSpend: number
+    personalSpend: number
+    total: number
+    count: number
+  }
 }
 
 export interface UpcomingRenewal {

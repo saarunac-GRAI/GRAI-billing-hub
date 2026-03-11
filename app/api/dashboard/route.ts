@@ -77,6 +77,23 @@ export async function GET() {
     amount,
   }))
 
+  // This month's transaction spend
+  const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd')
+  const monthEnd = format(endOfMonth(new Date()), 'yyyy-MM-dd')
+  const { data: txns } = await supabase
+    .from('transactions')
+    .select('amount, classification')
+    .gte('date', monthStart)
+    .lte('date', monthEnd)
+    .gt('amount', 0)
+
+  const thisMonthTx = {
+    projectSpend: (txns || []).filter(t => t.classification === 'project').reduce((s, t) => s + t.amount, 0),
+    personalSpend: (txns || []).filter(t => t.classification === 'personal').reduce((s, t) => s + t.amount, 0),
+    total: (txns || []).reduce((s, t) => s + t.amount, 0),
+    count: (txns || []).length,
+  }
+
   const summary: DashboardSummary = {
     totalMonthlyCost,
     totalYearlyCost,
@@ -85,6 +102,7 @@ export async function GET() {
     upcomingRenewals,
     costByProject: Array.from(projectMap.values()).sort((a, b) => b.monthlyCost - a.monthlyCost),
     monthlyTrend,
+    thisMonthTx,
   }
 
   return NextResponse.json(summary)

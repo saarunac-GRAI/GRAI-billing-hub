@@ -3,12 +3,14 @@ import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import type { DashboardSummary } from '@/types'
-import { TrendingUp, CreditCard, AlertTriangle, Calendar } from 'lucide-react'
+import { TrendingUp, CreditCard, AlertTriangle, Calendar, ShoppingCart, Briefcase } from 'lucide-react'
 
 export function SummaryCards({ summary }: { summary: DashboardSummary }) {
   const nextRenewal = summary.upcomingRenewals[0]
+  const tx = summary.thisMonthTx ?? { projectSpend: 0, personalSpend: 0, total: 0, count: 0 }
 
   return (
+    <div className="space-y-4">
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       <Card className="p-5">
         <div className="flex items-start justify-between">
@@ -80,6 +82,49 @@ export function SummaryCards({ summary }: { summary: DashboardSummary }) {
           </div>
         </div>
       </Card>
+    </div>
+
+    {/* Transaction spend row */}
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <Card className="p-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">This Month — Project Spend</p>
+            <p className="text-2xl font-bold text-green-700 mt-1">{formatCurrency(tx.projectSpend)}</p>
+            <p className="text-xs text-gray-400 mt-1">from imported transactions</p>
+          </div>
+          <div className="w-9 h-9 bg-green-50 rounded-lg flex items-center justify-center">
+            <Briefcase size={18} className="text-green-600" />
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">This Month — Personal Spend</p>
+            <p className="text-2xl font-bold text-amber-700 mt-1">{formatCurrency(tx.personalSpend)}</p>
+            <p className="text-xs text-gray-400 mt-1">from imported transactions</p>
+          </div>
+          <div className="w-9 h-9 bg-amber-50 rounded-lg flex items-center justify-center">
+            <ShoppingCart size={18} className="text-amber-600" />
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">This Month — Total Spend</p>
+            <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(tx.total)}</p>
+            <p className="text-xs text-gray-400 mt-1">{tx.count} transaction{tx.count !== 1 ? 's' : ''}</p>
+          </div>
+          <div className="w-9 h-9 bg-indigo-50 rounded-lg flex items-center justify-center">
+            <CreditCard size={18} className="text-indigo-600" />
+          </div>
+        </div>
+      </Card>
+    </div>
     </div>
   )
 }
