@@ -1,60 +1,29 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
-import { usePlaidLink } from 'react-plaid-link'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Header } from '@/components/layout/Header'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import type { Transaction, Project } from '@/types'
 import { formatCurrency } from '@/lib/utils'
-import { RefreshCw, Link2, Pencil } from 'lucide-react'
+import { Upload, Pencil, RefreshCw } from 'lucide-react'
 
-const classVariant: Record<string, 'success' | 'warning' | 'muted' | 'danger'> = {
+const classVariant: Record<string, 'success' | 'warning' | 'muted'> = {
   project: 'success',
   personal: 'warning',
   uncategorized: 'muted',
-}
-
-function PlaidConnectButton({ onSuccess }: { onSuccess: () => void }) {
-  const [linkToken, setLinkToken] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch('/api/plaid/link-token', { method: 'POST' })
-      .then(r => r.json())
-      .then(d => setLinkToken(d.link_token))
-  }, [])
-
-  const { open, ready } = usePlaidLink({
-    token: linkToken || '',
-    onSuccess: async (public_token, metadata) => {
-      await fetch('/api/plaid/exchange-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          public_token,
-          institution_name: metadata.institution?.name,
-          institution_id: metadata.institution?.institution_id,
-        }),
-      })
-      onSuccess()
-    },
-  })
-
-  return (
-    <Button size="sm" variant="secondary" onClick={() => open()} disabled={!ready || !linkToken}>
-      <Link2 size={14} /> Connect Bank
-    </Button>
-  )
 }
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
-  const [syncing, setSyncing] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadResult, setUploadResult] = useState<{ imported: number; skipped: number; format: string } | null>(null)
   const [filter, setFilter] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editClass, setEditClass] = useState('')
   const [editProject, setEditProject] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
 
   async function loadTransactions(cls?: string) {
     const params = new URLSearchParams()
@@ -65,43 +34,48 @@ export default function TransactionsPage() {
     setLoading(false)
   }
 
-  async function loadProjects() {
-    const data = await fetch('/api/projects').then(r => r.json())
-    setProjects(Array.isArray(data) ? data : [])
-  }
-
   useEffect(() => {
-    loadProjects()
+    fetch('/api/projects').then(r => r.json()).then(d => setProjects(Array.isArray(d) ? d : []))
     loadTransactions()
   }, [])
 
-  async function handleRefresh() {
-    setSyncing(true)
-    const res = await fetch('/api/plaid/transactions', { method: 'POST' })
-    const data = await res.json()
-    if (data.error) alert('Sync error: ' + data.error)
-    await loadTransactions(filter || undefined)
-    setSyncing(false)
-  }
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setUploadResult(null)
 
-  async function saveOverride(id: string) {
-    await fetch('/api/transactions', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id,
-        classification: editClass,
-        project_id: editProject || null,
-      }),
-    })
-    setEditingId(null)
-    await loadTransactions(filter || undefined)
+    const form = new FormData()
+    form.append('file', file)
+    form.append('source', file.name.toLowerCase().includes('chase') ? 'chase' : 'capitalone')
+
+    const res = await fetch('/api/transactions/csv', { method: 'POST', body: form })
+    const data = await res.json()
+
+    if (!res.ok) {
+      alert('Import failed: ' + (data.error || 'Unknown error'))
+    } else {
+      setUploadResult(data)
+      await loadTransactions(filter || undefined)
+    }
+    setUploading(false)
+    if (fileRef.current) fileRef.current.value = ''
   }
 
   const handleFilterChange = useCallback((cls: string) => {
     setFilter(cls)
     loadTransactions(cls || undefined)
   }, [])
+
+  async function saveOverride(id: string) {
+    await fetch('/api/transactions', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, classification: editClass, project_id: editProject || null }),
+    })
+    setEditingId(null)
+    await loadTransactions(filter || undefined)
+  }
 
   const selectCls = 'border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white'
 
@@ -115,6 +89,28 @@ export default function TransactionsPage() {
     <div>
       <Header title="Transactions" />
       <div className="p-6 max-w-7xl space-y-5">
+
+        {/* How to export guide */}
+        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-800">
+          <p className="font-semibold mb-1">How to import your transactions:</p>
+          <ol className="list-decimal list-inside space-y-0.5 text-xs">
+            <li><strong>Capital One:</strong> capitalone.com → Account → Download → CSV → last 3 months</li>
+            <li><strong>Chase:</strong> chase.com → Account activity → Download → CSV</li>
+            <li><strong>Other banks:</strong> Download CSV statement → upload here (date, description, amount columns needed)</li>
+          </ol>
+        </div>
+
+        {/* Upload result */}
+        {uploadResult && (
+          <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800 flex items-center justify-between">
+            <span>
+              Imported <strong>{uploadResult.imported}</strong> transactions
+              {uploadResult.skipped > 0 && ` · ${uploadResult.skipped} duplicates skipped`}
+              {' '}· Format detected: <strong>{uploadResult.format}</strong>
+            </span>
+            <button onClick={() => setUploadResult(null)} className="text-green-500 hover:text-green-700">✕</button>
+          </div>
+        )}
 
         {/* Summary strip */}
         <div className="grid grid-cols-3 gap-4">
@@ -148,9 +144,18 @@ export default function TransactionsPage() {
             ))}
           </div>
           <div className="flex items-center gap-2">
-            <PlaidConnectButton onSuccess={handleRefresh} />
-            <Button size="sm" onClick={handleRefresh} loading={syncing}>
-              <RefreshCw size={14} /> Refresh Transactions
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+            <Button size="sm" onClick={() => fileRef.current?.click()} loading={uploading}>
+              <Upload size={14} /> Import CSV
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => loadTransactions(filter || undefined)}>
+              <RefreshCw size={14} />
             </Button>
           </div>
         </div>
@@ -162,7 +167,7 @@ export default function TransactionsPage() {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Date</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Merchant</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Description</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Amount</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Category</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Project</th>
@@ -175,79 +180,51 @@ export default function TransactionsPage() {
                 ) : transactions.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-16 text-gray-400">
-                      <p className="mb-2">No transactions yet.</p>
-                      <p className="text-xs">Connect a bank account and click Refresh Transactions.</p>
+                      <p className="mb-1">No transactions yet.</p>
+                      <p className="text-xs">Download a CSV from your bank and click Import CSV above.</p>
                     </td>
                   </tr>
                 ) : transactions.map(tx => (
                   <tr key={tx.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{tx.date}</td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900">{tx.merchant_name || tx.description}</p>
-                      {tx.merchant_name && tx.description !== tx.merchant_name && (
-                        <p className="text-xs text-gray-400 truncate max-w-[200px]">{tx.description}</p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {formatCurrency(tx.amount)}
-                      {tx.pending && <span className="ml-1 text-xs text-amber-500">pending</span>}
-                    </td>
+                    <td className="px-4 py-3 font-medium text-gray-900 max-w-xs truncate">{tx.description}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900">{formatCurrency(tx.amount)}</td>
                     <td className="px-4 py-3">
                       {editingId === tx.id ? (
-                        <select
-                          value={editClass}
-                          onChange={e => setEditClass(e.target.value)}
-                          className={selectCls}
-                        >
+                        <select value={editClass} onChange={e => setEditClass(e.target.value)} className={selectCls}>
                           <option value="project">Project</option>
                           <option value="personal">Personal</option>
                           <option value="uncategorized">Uncategorized</option>
                         </select>
                       ) : (
                         <div className="flex items-center gap-1">
-                          <Badge variant={classVariant[tx.classification] || 'muted'}>
-                            {tx.classification}
-                          </Badge>
-                          {tx.is_manual && (
-                            <span className="text-xs text-indigo-400" title="Manually classified">✎</span>
-                          )}
+                          <Badge variant={classVariant[tx.classification] || 'muted'}>{tx.classification}</Badge>
+                          {tx.is_manual && <span className="text-xs text-indigo-400" title="Manually set">✎</span>}
                         </div>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       {editingId === tx.id ? (
-                        <select
-                          value={editProject}
-                          onChange={e => setEditProject(e.target.value)}
-                          className={selectCls}
-                        >
+                        <select value={editProject} onChange={e => setEditProject(e.target.value)} className={selectCls}>
                           <option value="">None</option>
-                          {projects.map(p => (
-                            <option key={p.id} value={p.id}>{p.name}</option>
-                          ))}
+                          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                       ) : tx.project ? (
                         <div className="flex items-center gap-1.5">
                           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: tx.project.color }} />
                           <span className="text-gray-600">{tx.project.name}</span>
                         </div>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
+                      ) : <span className="text-gray-400">—</span>}
                     </td>
                     <td className="px-4 py-3">
                       {editingId === tx.id ? (
                         <div className="flex items-center gap-1">
                           <Button size="sm" onClick={() => saveOverride(tx.id)}>Save</Button>
-                          <Button size="sm" variant="secondary" onClick={() => setEditingId(null)}>Cancel</Button>
+                          <Button size="sm" variant="secondary" onClick={() => setEditingId(null)}>✕</Button>
                         </div>
                       ) : (
                         <button
-                          onClick={() => {
-                            setEditingId(tx.id)
-                            setEditClass(tx.classification)
-                            setEditProject(tx.project_id || '')
-                          }}
+                          onClick={() => { setEditingId(tx.id); setEditClass(tx.classification); setEditProject(tx.project_id || '') }}
                           className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md"
                         >
                           <Pencil size={13} />
@@ -263,7 +240,6 @@ export default function TransactionsPage() {
             {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
           </div>
         </div>
-
       </div>
     </div>
   )

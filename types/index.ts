@@ -134,23 +134,11 @@ export interface ParsedImapEmail {
   suggestedProjectId: string
 }
 
-// ── Plaid / Transactions ─────────────────────────────────────
+// ── Transactions ──────────────────────────────────────────────
 export type TransactionClassification = 'project' | 'personal' | 'uncategorized'
-
-export interface PlaidItem {
-  id: string
-  item_id: string
-  institution_name: string | null
-  institution_id: string | null
-  cursor: string | null
-  created_at: string
-  updated_at: string
-}
 
 export interface Transaction {
   id: string
-  plaid_item_id: string | null
-  plaid_tx_id: string | null
   date: string
   amount: number
   merchant_name: string | null

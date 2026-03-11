@@ -5,45 +5,10 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { GmailIngestReview } from '@/components/subscriptions/GmailIngestReview'
 import { ImapIngestReview } from '@/components/subscriptions/ImapIngestReview'
-import { Mail, Shield, Building2, Tag, Bell, Trash2, Plus } from 'lucide-react'
-import type { Project, ClassificationRule, PlaidItem } from '@/types'
+import { Mail, Shield, Tag, Bell, Trash2, Plus } from 'lucide-react'
+import type { Project, ClassificationRule } from '@/types'
 
 const inputCls = 'border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-
-// ── Connected Banks ─────────────────────────────────────────────
-function ConnectedBanks() {
-  const [items, setItems] = useState<PlaidItem[]>([])
-
-  async function load() {
-    // plaid_items don't have a dedicated API yet — inline fetch
-    const res = await fetch('/api/plaid/items')
-    if (res.ok) setItems(await res.json())
-  }
-
-  useEffect(() => { load() }, [])
-
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-gray-600">
-        Bank accounts connected via Plaid for automatic transaction import.
-      </p>
-      {items.length === 0 ? (
-        <p className="text-sm text-gray-400 italic">No accounts connected yet. Use the Transactions page to connect.</p>
-      ) : (
-        <ul className="space-y-2">
-          {items.map(item => (
-            <li key={item.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-              <div>
-                <p className="text-sm font-medium text-gray-800">{item.institution_name || 'Unknown Bank'}</p>
-                <p className="text-xs text-gray-400">Connected {new Date(item.created_at).toLocaleDateString()}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
 
 // ── Classification Rules ────────────────────────────────────────
 function ClassificationRules({ projects }: { projects: Project[] }) {
@@ -280,19 +245,6 @@ export default function SettingsPage() {
     <div>
       <Header title="Settings" />
       <div className="p-6 max-w-3xl space-y-6">
-
-        {/* Connected Banks */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Building2 size={16} className="text-indigo-600" />
-              <CardTitle>Connected Banks</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ConnectedBanks />
-          </CardContent>
-        </Card>
 
         {/* Classification Rules */}
         <Card>
