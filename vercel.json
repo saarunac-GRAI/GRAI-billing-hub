@@ -2,23 +2,5 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
-  "installCommand": "npm install",
-  "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key",
-    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
-    "GOOGLE_CLIENT_ID": "@google_client_id",
-    "GOOGLE_CLIENT_SECRET": "@google_client_secret",
-    "GMAIL_REFRESH_TOKEN": "@gmail_refresh_token",
-    "GMAIL_USER": "@gmail_user",
-    "YAHOO_EMAIL": "@yahoo_email",
-    "YAHOO_APP_PASSWORD": "@yahoo_app_password",
-    "YAHOO_DEFAULT_PROJECT_ID": "@yahoo_default_project_id",
-    "NEXT_PUBLIC_YAHOO_EMAIL": "@next_public_yahoo_email",
-    "N8N_WEBHOOK_SECRET": "@n8n_webhook_secret",
-    "VAPID_EMAIL": "@vapid_email",
-    "VAPID_PUBLIC_KEY": "@vapid_public_key",
-    "VAPID_PRIVATE_KEY": "@vapid_private_key",
-    "NEXT_PUBLIC_VAPID_KEY": "@next_public_vapid_key"
-  }
+  "installCommand": "npm install"
 }
