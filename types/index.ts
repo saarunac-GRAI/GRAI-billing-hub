@@ -134,6 +134,59 @@ export interface ParsedImapEmail {
   suggestedProjectId: string
 }
 
+// ── Plaid / Transactions ─────────────────────────────────────
+export type TransactionClassification = 'project' | 'personal' | 'uncategorized'
+
+export interface PlaidItem {
+  id: string
+  item_id: string
+  institution_name: string | null
+  institution_id: string | null
+  cursor: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Transaction {
+  id: string
+  plaid_item_id: string | null
+  plaid_tx_id: string | null
+  date: string
+  amount: number
+  merchant_name: string | null
+  description: string
+  category_raw: string[] | null
+  project_id: string | null
+  classification: TransactionClassification
+  matched_rule_id: string | null
+  is_manual: boolean
+  pending: boolean
+  account_id: string | null
+  currency: string
+  created_at: string
+  project?: Project
+}
+
+export interface ClassificationRule {
+  id: string
+  keyword: string
+  project_id: string | null
+  classification: 'project' | 'personal'
+  priority: number
+  created_at: string
+  project?: Project
+}
+
+export interface PushSubscription {
+  id: string
+  endpoint: string
+  p256dh: string
+  auth: string
+  user_agent: string | null
+  created_at: string
+}
+
+// ── Forms ─────────────────────────────────────────────────────
 export interface SubscriptionFormValues {
   name: string
   project_id: string

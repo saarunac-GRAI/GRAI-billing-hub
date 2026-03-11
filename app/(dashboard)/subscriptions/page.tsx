@@ -21,21 +21,34 @@ export default function SubscriptionsPage() {
 
   useEffect(() => { load() }, [])
 
+  function sanitize(data: Record<string, unknown>) {
+    const cleaned: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(data)) {
+      cleaned[k] = v === '' ? null : v
+    }
+    return cleaned
+  }
+
   async function handleAdd(data: Omit<Subscription, 'id' | 'created_at' | 'updated_at'>) {
     await fetch('/api/subscriptions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify(sanitize(data as Record<string, unknown>)),
     })
     await load()
   }
 
   async function handleEdit(id: string, data: Partial<Subscription>) {
-    await fetch(`/api/subscriptions/${id}`, {
+    const res = await fetch(`/api/subscriptions/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify(sanitize(data as Record<string, unknown>)),
     })
+    if (!res.ok) {
+      const err = await res.json()
+      alert('Update failed: ' + (err.error || 'Unknown error'))
+      return
+    }
     await load()
   }
 

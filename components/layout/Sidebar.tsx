@@ -4,12 +4,13 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, CreditCard, FolderOpen,
-  BarChart2, Calendar, Settings, Zap
+  BarChart2, Calendar, Settings, Zap, ArrowLeftRight
 } from 'lucide-react'
 
 const nav = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/subscriptions', label: 'Subscriptions', icon: CreditCard },
+  { href: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
   { href: '/projects', label: 'Projects', icon: FolderOpen },
   { href: '/reports', label: 'Reports', icon: BarChart2 },
   { href: '/calendar', label: 'Calendar', icon: Calendar },
