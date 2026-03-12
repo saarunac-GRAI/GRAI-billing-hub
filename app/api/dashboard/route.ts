@@ -11,12 +11,26 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const projectId = searchParams.get('project_id') || null
 
+  // Resolve project name to handle "Personal" project specially
+  let isPersonalProject = false
+  if (projectId) {
+    const { data: proj } = await supabase.from('projects').select('name').eq('id', projectId).single()
+    isPersonalProject = (proj?.name ?? '').toLowerCase().includes('personal')
+  }
+
   // Fetch active subscriptions — filter by project if specified
+  // Personal project: subscriptions where project_id IS NULL or matches personal project
   let subQuery = supabase
     .from('subscriptions')
     .select('*, project:projects(*)')
     .in('status', ['active', 'overdue'])
-  if (projectId) subQuery = subQuery.eq('project_id', projectId)
+  if (projectId) {
+    if (isPersonalProject) {
+      subQuery = subQuery.or(`project_id.is.null,project_id.eq.${projectId}`)
+    } else {
+      subQuery = subQuery.eq('project_id', projectId)
+    }
+  }
   const { data: subscriptions, error } = await subQuery
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -64,7 +78,13 @@ export async function GET(request: NextRequest) {
     .select('amount, date, classification')
     .gte('date', since)
     .gt('amount', 0)
-  if (projectId) txTrendQuery = txTrendQuery.eq('project_id', projectId)
+  if (projectId) {
+    if (isPersonalProject) {
+      txTrendQuery = txTrendQuery.eq('classification', 'personal')
+    } else {
+      txTrendQuery = txTrendQuery.eq('project_id', projectId)
+    }
+  }
   const { data: trendTxns } = await txTrendQuery
 
   const trendMap = new Map<string, number>()
@@ -93,7 +113,13 @@ export async function GET(request: NextRequest) {
     .gte('date', monthStart)
     .lte('date', monthEnd)
     .gt('amount', 0)
-  if (projectId) txQuery = txQuery.eq('project_id', projectId)
+  if (projectId) {
+    if (isPersonalProject) {
+      txQuery = txQuery.eq('classification', 'personal')
+    } else {
+      txQuery = txQuery.eq('project_id', projectId)
+    }
+  }
   const { data: txns } = await txQuery
 
   const thisMonthTx = {
