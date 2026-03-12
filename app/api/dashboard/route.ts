@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { toMonthlyCost, toYearlyCost, getDaysUntil } from '@/lib/utils'
 import type { DashboardSummary, CostByProject, UpcomingRenewal, MonthlyTrend } from '@/types'
-import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
+import { format, subMonths, startOfMonth, endOfMonth, addMonths, parseISO, isSameMonth } from 'date-fns'
 
 export async function GET() {
   const supabase = createAdminClient()
@@ -94,6 +94,37 @@ export async function GET() {
     count: (txns || []).length,
   }
 
+  // Forecast next 3 months based on subscription renewal dates + monthly costs
+  const forecastMonths: MonthlyTrend[] = [1, 2, 3].map(offset => {
+    const targetDate = addMonths(new Date(), offset)
+    const monthLabel = format(targetDate, 'MMM yyyy')
+    let projected = 0
+
+    for (const sub of subscriptions || []) {
+      if (sub.status !== 'active') continue
+      if (sub.billing_cycle === 'monthly') {
+        projected += sub.cost_usd
+      } else if (sub.billing_cycle === 'yearly' && sub.next_renewal_date) {
+        try {
+          if (isSameMonth(parseISO(sub.next_renewal_date), targetDate)) projected += sub.cost_usd
+        } catch { /* skip */ }
+      } else if (sub.billing_cycle === 'quarterly' && sub.next_renewal_date) {
+        try {
+          const renewDate = parseISO(sub.next_renewal_date)
+          const diff = offset - 0 // months from now
+          // Check if renewal falls in this target month (quarterly = every 3 months)
+          if (isSameMonth(renewDate, targetDate) ||
+              isSameMonth(addMonths(renewDate, 3), targetDate) ||
+              isSameMonth(addMonths(renewDate, -3), targetDate)) {
+            projected += sub.cost_usd
+          }
+        } catch { /* skip */ }
+      }
+    }
+
+    return { month: monthLabel, amount: projected }
+  })
+
   const summary: DashboardSummary = {
     totalMonthlyCost,
     totalYearlyCost,
@@ -102,6 +133,7 @@ export async function GET() {
     upcomingRenewals,
     costByProject: Array.from(projectMap.values()).sort((a, b) => b.monthlyCost - a.monthlyCost),
     monthlyTrend,
+    forecastMonths,
     thisMonthTx,
   }
 

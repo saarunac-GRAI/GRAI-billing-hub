@@ -51,5 +51,5 @@ export function toYearlyCost(costUsd: number, cycle: BillingCycle): number {
 }
 
 export function getAlertDaysThresholds(): number[] {
-  return [14, 7, 3, 1]
+  return [14, 7, 3, 2, 1]
 }

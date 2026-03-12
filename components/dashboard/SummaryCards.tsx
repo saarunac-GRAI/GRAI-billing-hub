@@ -2,12 +2,23 @@
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import type { DashboardSummary } from '@/types'
+import type { DashboardSummary, Project } from '@/types'
 import { TrendingUp, CreditCard, AlertTriangle, Calendar, ShoppingCart, Briefcase } from 'lucide-react'
 
-export function SummaryCards({ summary }: { summary: DashboardSummary }) {
+export function SummaryCards({
+  summary,
+  selectedProject,
+  projects,
+}: {
+  summary: DashboardSummary
+  selectedProject?: string
+  projects?: Project[]
+}) {
   const nextRenewal = summary.upcomingRenewals[0]
   const tx = summary.thisMonthTx ?? { projectSpend: 0, personalSpend: 0, total: 0, count: 0 }
+  const projectLabel = selectedProject && projects
+    ? projects.find(p => p.id === selectedProject)?.name ?? 'All'
+    : 'All'
 
   return (
     <div className="space-y-4">
@@ -89,7 +100,7 @@ export function SummaryCards({ summary }: { summary: DashboardSummary }) {
       <Card className="p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">This Month — Project Spend</p>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">This Month — Project Spend {selectedProject ? `(${projectLabel})` : ''}</p>
             <p className="text-2xl font-bold text-green-700 mt-1">{formatCurrency(tx.projectSpend)}</p>
             <p className="text-xs text-gray-400 mt-1">from imported transactions</p>
           </div>

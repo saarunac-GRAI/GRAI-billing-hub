@@ -13,6 +13,21 @@ interface RawTx {
   merchant?: string
 }
 
+const PAYMENT_KEYWORDS = [
+  'mobile pymt', 'mobile payment', 'online pymt', 'online payment',
+  'autopay', 'auto pay', 'bill pay', 'bill payment',
+  'pymt thank you', 'thank you payment', 'payment thank',
+  'capital one pymt', 'chase pymt', 'credit card payment',
+  'payment received', 'payment - thank', 'transfer to savings',
+  'transfer from', 'direct deposit',
+]
+
+function isPayment(description: string, amount: number): boolean {
+  if (amount <= 0) return true
+  const lower = description.toLowerCase()
+  return PAYMENT_KEYWORDS.some(kw => lower.includes(kw))
+}
+
 function detectFormat(headers: string[]): 'capitalone' | 'chase' | 'generic' {
   const h = headers.map(h => h.toLowerCase().trim())
   if (h.includes('transaction date') && h.includes('debit') && h.includes('credit')) return 'capitalone'
@@ -134,6 +149,10 @@ export async function POST(request: NextRequest) {
   else if (format === 'chase') rawTxs = parseChase(rows, headers)
   else rawTxs = parseGeneric(rows, headers)
 
+  // Filter out payments (credits, bank transfers, card payments)
+  const paymentsSkipped = rawTxs.filter(tx => isPayment(tx.description, tx.amount)).length
+  rawTxs = rawTxs.filter(tx => !isPayment(tx.description, tx.amount))
+
   if (!rawTxs.length) return NextResponse.json({ error: 'No transactions found in CSV. Check the format.' }, { status: 400 })
 
   // Load classification rules
@@ -192,5 +211,5 @@ export async function POST(request: NextRequest) {
     description: `CSV import (${format}): ${inserted} imported, ${duplicates.length} duplicates skipped`,
   })
 
-  return NextResponse.json({ imported: inserted, skipped: duplicates.length, duplicates, total: rawTxs.length, format })
+  return NextResponse.json({ imported: inserted, skipped: duplicates.length, duplicates, paymentsSkipped, total: rawTxs.length + paymentsSkipped, format })
 }

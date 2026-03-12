@@ -84,6 +84,7 @@ export interface DashboardSummary {
   upcomingRenewals: UpcomingRenewal[]
   costByProject: CostByProject[]
   monthlyTrend: MonthlyTrend[]
+  forecastMonths: MonthlyTrend[]
   thisMonthTx: {
     projectSpend: number
     personalSpend: number
