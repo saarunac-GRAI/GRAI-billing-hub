@@ -18,10 +18,11 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
-  async function load() {
+  async function load(projectId?: string) {
     setRefreshing(true)
+    const params = projectId ? `?project_id=${projectId}` : ''
     const [dashRes, projRes] = await Promise.all([
-      fetch('/api/dashboard'),
+      fetch('/api/dashboard' + params),
       fetch('/api/projects'),
     ])
     setSummary(await dashRes.json())
@@ -59,7 +60,7 @@ export default function DashboardPage() {
             <label className="text-sm text-gray-500 font-medium">Project:</label>
             <select
               value={selectedProject}
-              onChange={e => setSelectedProject(e.target.value)}
+              onChange={e => { setSelectedProject(e.target.value); load(e.target.value || undefined) }}
               className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
             >
               <option value="">All Projects</option>
@@ -68,7 +69,7 @@ export default function DashboardPage() {
               ))}
             </select>
           </div>
-          <Button size="sm" variant="secondary" onClick={load} loading={refreshing}>
+          <Button size="sm" variant="secondary" onClick={() => load(selectedProject || undefined)} loading={refreshing}>
             <RefreshCw size={14} /> Refresh
           </Button>
         </div>

@@ -1,21 +1,26 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { toMonthlyCost, toYearlyCost, getDaysUntil } from '@/lib/utils'
 import type { DashboardSummary, CostByProject, UpcomingRenewal, MonthlyTrend } from '@/types'
 import { format, subMonths, startOfMonth, endOfMonth, addMonths, parseISO, isSameMonth } from 'date-fns'
 
-export async function GET() {
-  const supabase = createAdminClient()
+export const dynamic = 'force-dynamic'
 
-  // Fetch active subscriptions with projects
-  const { data: subscriptions, error } = await supabase
+export async function GET(request: NextRequest) {
+  const supabase = createAdminClient()
+  const { searchParams } = new URL(request.url)
+  const projectId = searchParams.get('project_id') || null
+
+  // Fetch active subscriptions — filter by project if specified
+  let subQuery = supabase
     .from('subscriptions')
     .select('*, project:projects(*)')
     .in('status', ['active', 'overdue'])
-
+  if (projectId) subQuery = subQuery.eq('project_id', projectId)
+  const { data: subscriptions, error } = await subQuery
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Totals
+  // Subscription cost totals
   let totalMonthlyCost = 0
   let totalYearlyCost = 0
   const projectMap = new Map<string, CostByProject>()
@@ -52,23 +57,25 @@ export async function GET() {
 
   const overdueCount = (subscriptions || []).filter(s => s.status === 'overdue').length
 
-  // Monthly trend — last 12 months from spending_history
-  const since = subMonths(new Date(), 12)
-  const { data: history } = await supabase
-    .from('spending_history')
-    .select('amount_usd, billed_at')
-    .gte('billed_at', since.toISOString().split('T')[0])
+  // Monthly trend — last 12 months from transactions (real spend data)
+  const since = format(subMonths(new Date(), 12), 'yyyy-MM-dd')
+  let txTrendQuery = supabase
+    .from('transactions')
+    .select('amount, date, classification')
+    .gte('date', since)
+    .gt('amount', 0)
+  if (projectId) txTrendQuery = txTrendQuery.eq('project_id', projectId)
+  const { data: trendTxns } = await txTrendQuery
 
   const trendMap = new Map<string, number>()
   for (let i = 11; i >= 0; i--) {
     const d = subMonths(new Date(), i)
     trendMap.set(format(d, 'MMM yyyy'), 0)
   }
-
-  for (const h of history || []) {
-    const key = format(new Date(h.billed_at), 'MMM yyyy')
+  for (const tx of trendTxns || []) {
+    const key = format(new Date(tx.date), 'MMM yyyy')
     if (trendMap.has(key)) {
-      trendMap.set(key, (trendMap.get(key) || 0) + h.amount_usd)
+      trendMap.set(key, (trendMap.get(key) || 0) + tx.amount)
     }
   }
 
@@ -77,15 +84,17 @@ export async function GET() {
     amount,
   }))
 
-  // This month's transaction spend
+  // This month's transaction spend — filtered by project if specified
   const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd')
   const monthEnd = format(endOfMonth(new Date()), 'yyyy-MM-dd')
-  const { data: txns } = await supabase
+  let txQuery = supabase
     .from('transactions')
-    .select('amount, classification')
+    .select('amount, classification, project_id')
     .gte('date', monthStart)
     .lte('date', monthEnd)
     .gt('amount', 0)
+  if (projectId) txQuery = txQuery.eq('project_id', projectId)
+  const { data: txns } = await txQuery
 
   const thisMonthTx = {
     projectSpend: (txns || []).filter(t => t.classification === 'project').reduce((s, t) => s + t.amount, 0),
@@ -111,8 +120,6 @@ export async function GET() {
       } else if (sub.billing_cycle === 'quarterly' && sub.next_renewal_date) {
         try {
           const renewDate = parseISO(sub.next_renewal_date)
-          const diff = offset - 0 // months from now
-          // Check if renewal falls in this target month (quarterly = every 3 months)
           if (isSameMonth(renewDate, targetDate) ||
               isSameMonth(addMonths(renewDate, 3), targetDate) ||
               isSameMonth(addMonths(renewDate, -3), targetDate)) {
