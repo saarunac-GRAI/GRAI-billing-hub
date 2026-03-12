@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
       keyword: body.keyword?.trim().toLowerCase(),
       project_id: body.project_id || null,
       classification: body.classification || 'project',
+      category: body.category || null,
       priority: body.priority ?? 5,
     })
     .select('*, project:projects(id,name,color)')

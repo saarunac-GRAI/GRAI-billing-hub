@@ -9,6 +9,7 @@ import { Mail, Shield, Tag, Bell, Trash2, Plus } from 'lucide-react'
 import type { Project, ClassificationRule } from '@/types'
 
 const inputCls = 'border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+const CATEGORIES = ['Food', 'Groceries', 'Gas', 'Fitness', 'Utilities', 'Software', 'Shopping', 'Tuition', 'Healthcare', 'Entertainment', 'Other']
 
 // ── Classification Rules ────────────────────────────────────────
 function ClassificationRules({ projects }: { projects: Project[] }) {
@@ -17,6 +18,7 @@ function ClassificationRules({ projects }: { projects: Project[] }) {
   const [keyword, setKeyword] = useState('')
   const [projectId, setProjectId] = useState('')
   const [classification, setClassification] = useState<'project' | 'personal'>('project')
+  const [category, setCategory] = useState('')
   const [saving, setSaving] = useState(false)
 
   async function load() {
@@ -32,11 +34,12 @@ function ClassificationRules({ projects }: { projects: Project[] }) {
     await fetch('/api/classification-rules', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keyword, project_id: projectId || null, classification }),
+      body: JSON.stringify({ keyword, project_id: projectId || null, classification, category: category || null }),
     })
     setKeyword('')
     setProjectId('')
     setClassification('project')
+    setCategory('')
     setAdding(false)
     setSaving(false)
     await load()
@@ -52,7 +55,7 @@ function ClassificationRules({ projects }: { projects: Project[] }) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-gray-600">
-        Keywords matched against transaction merchant/description to auto-classify as Project or Personal.
+        Keywords matched against transaction description to auto-classify as Project or Personal, and assign a spending category.
       </p>
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
@@ -60,6 +63,7 @@ function ClassificationRules({ projects }: { projects: Project[] }) {
             <tr className="bg-gray-50 border-b border-gray-200">
               <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Keyword</th>
               <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Type</th>
+              <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Category</th>
               <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Project</th>
               <th className="px-4 py-2"></th>
             </tr>
@@ -77,6 +81,11 @@ function ClassificationRules({ projects }: { projects: Project[] }) {
                     {rule.classification}
                   </span>
                 </td>
+                <td className="px-4 py-2">
+                  {rule.category
+                    ? <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{rule.category}</span>
+                    : <span className="text-gray-300">—</span>}
+                </td>
                 <td className="px-4 py-2 text-gray-600">
                   {rule.project ? (
                     <div className="flex items-center gap-1.5">
@@ -86,10 +95,7 @@ function ClassificationRules({ projects }: { projects: Project[] }) {
                   ) : '—'}
                 </td>
                 <td className="px-4 py-2">
-                  <button
-                    onClick={() => deleteRule(rule.id)}
-                    className="p-1 text-gray-400 hover:text-red-600 rounded"
-                  >
+                  <button onClick={() => deleteRule(rule.id)} className="p-1 text-gray-400 hover:text-red-600 rounded">
                     <Trash2 size={12} />
                   </button>
                 </td>
@@ -102,7 +108,7 @@ function ClassificationRules({ projects }: { projects: Project[] }) {
                     value={keyword}
                     onChange={e => setKeyword(e.target.value)}
                     className={inputCls + ' w-full'}
-                    placeholder="e.g. anthropic"
+                    placeholder="e.g. starbucks"
                     autoFocus
                     onKeyDown={e => { if (e.key === 'Enter') addRule() }}
                   />
@@ -111,6 +117,12 @@ function ClassificationRules({ projects }: { projects: Project[] }) {
                   <select value={classification} onChange={e => setClassification(e.target.value as 'project' | 'personal')} className={selectCls}>
                     <option value="project">Project</option>
                     <option value="personal">Personal</option>
+                  </select>
+                </td>
+                <td className="px-4 py-2">
+                  <select value={category} onChange={e => setCategory(e.target.value)} className={selectCls}>
+                    <option value="">None</option>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </td>
                 <td className="px-4 py-2">

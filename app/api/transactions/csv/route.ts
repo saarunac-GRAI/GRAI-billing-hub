@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
 
   // Build insert rows
   const toInsert = rawTxs.map(tx => {
-    const { classification, project_id, rule_id } = classifyTransaction(
+    const { classification, project_id, rule_id, category } = classifyTransaction(
       tx.merchant || tx.description,
       rules || []
     )
@@ -174,6 +174,7 @@ export async function POST(request: NextRequest) {
       merchant_name: null,
       description: tx.description,
       category_raw: [source],
+      category: category || null,
       project_id: project_id || null,
       classification,
       matched_rule_id: rule_id || null,

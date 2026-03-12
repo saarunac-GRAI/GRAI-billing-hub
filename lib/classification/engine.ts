@@ -3,6 +3,7 @@ export interface ClassificationRule {
   keyword: string
   project_id: string | null
   classification: 'project' | 'personal'
+  category: string | null
   priority: number
 }
 
@@ -10,6 +11,7 @@ export interface ClassificationResult {
   classification: 'project' | 'personal' | 'uncategorized'
   project_id: string | null
   rule_id: string | null
+  category: string | null
 }
 
 /**
@@ -20,7 +22,7 @@ export function classifyTransaction(
   name: string,
   rules: ClassificationRule[]
 ): ClassificationResult {
-  if (!name) return { classification: 'uncategorized', project_id: null, rule_id: null }
+  if (!name) return { classification: 'uncategorized', project_id: null, rule_id: null, category: null }
 
   const lower = name.toLowerCase()
 
@@ -30,9 +32,10 @@ export function classifyTransaction(
         classification: rule.classification,
         project_id: rule.project_id,
         rule_id: rule.id,
+        category: rule.category ?? null,
       }
     }
   }
 
-  return { classification: 'uncategorized', project_id: null, rule_id: null }
+  return { classification: 'uncategorized', project_id: null, rule_id: null, category: null }
 }

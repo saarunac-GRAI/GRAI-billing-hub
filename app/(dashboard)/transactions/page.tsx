@@ -13,9 +13,12 @@ const classVariant: Record<string, 'success' | 'warning' | 'muted'> = {
   uncategorized: 'muted',
 }
 
+const CATEGORIES = ['Food', 'Groceries', 'Gas', 'Fitness', 'Utilities', 'Software', 'Shopping', 'Tuition', 'Healthcare', 'Entertainment', 'Other']
+
 type UploadResult = {
   imported: number
   skipped: number
+  paymentsSkipped?: number
   duplicates: { date: string; description: string; amount: number }[]
   format: string
 }
@@ -29,9 +32,11 @@ export default function TransactionsPage() {
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null)
   const [showDuplicates, setShowDuplicates] = useState(false)
   const [filter, setFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editClass, setEditClass] = useState('')
   const [editProject, setEditProject] = useState('')
+  const [editCategory, setEditCategory] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function loadTransactions(cls?: string) {
@@ -90,7 +95,7 @@ export default function TransactionsPage() {
     await fetch('/api/transactions', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, classification: editClass, project_id: editProject || null }),
+      body: JSON.stringify({ id, classification: editClass, project_id: editProject || null, category: editCategory || null }),
     })
     setEditingId(null)
     await loadTransactions(filter || undefined)
@@ -98,11 +103,19 @@ export default function TransactionsPage() {
 
   const selectCls = 'border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white'
 
+  // Client-side category filter on top of server-side classification filter
+  const displayed = categoryFilter
+    ? transactions.filter(t => t.category === categoryFilter)
+    : transactions
+
   const summary = {
-    project: transactions.filter(t => t.classification === 'project').reduce((s, t) => s + t.amount, 0),
-    personal: transactions.filter(t => t.classification === 'personal').reduce((s, t) => s + t.amount, 0),
-    uncategorized: transactions.filter(t => t.classification === 'uncategorized').length,
+    project: displayed.filter(t => t.classification === 'project').reduce((s, t) => s + t.amount, 0),
+    personal: displayed.filter(t => t.classification === 'personal').reduce((s, t) => s + t.amount, 0),
+    uncategorized: displayed.filter(t => t.classification === 'uncategorized').length,
   }
+
+  // Unique categories from loaded transactions
+  const availableCategories = [...new Set(transactions.map(t => t.category).filter(Boolean))] as string[]
 
   return (
     <div>
@@ -125,6 +138,7 @@ export default function TransactionsPage() {
             <div className="flex items-center justify-between">
               <span>
                 Imported <strong>{uploadResult.imported}</strong> new transaction{uploadResult.imported !== 1 ? 's' : ''}
+                {(uploadResult.paymentsSkipped ?? 0) > 0 && <span className="text-gray-500"> · {uploadResult.paymentsSkipped} payments skipped</span>}
                 {uploadResult.skipped > 0 && (
                   <button
                     onClick={() => setShowDuplicates(v => !v)}
@@ -168,7 +182,7 @@ export default function TransactionsPage() {
 
         {/* Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {['', 'project', 'personal', 'uncategorized'].map(cls => (
               <button
                 key={cls}
@@ -182,15 +196,19 @@ export default function TransactionsPage() {
                 {cls === '' ? 'All' : cls.charAt(0).toUpperCase() + cls.slice(1)}
               </button>
             ))}
+            {availableCategories.length > 0 && (
+              <select
+                value={categoryFilter}
+                onChange={e => setCategoryFilter(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">All Categories</option>
+                {availableCategories.sort().map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
+            <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
             <Button size="sm" onClick={() => fileRef.current?.click()} loading={uploading}>
               <Upload size={14} /> Import CSV
             </Button>
@@ -212,6 +230,7 @@ export default function TransactionsPage() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Date</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Description</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Amount</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Type</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Category</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Project</th>
                   <th className="px-4 py-3"></th>
@@ -219,15 +238,15 @@ export default function TransactionsPage() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {loading ? (
-                  <tr><td colSpan={6} className="text-center py-10 text-gray-400">Loading...</td></tr>
-                ) : transactions.length === 0 ? (
+                  <tr><td colSpan={7} className="text-center py-10 text-gray-400">Loading...</td></tr>
+                ) : displayed.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-16 text-gray-400">
+                    <td colSpan={7} className="text-center py-16 text-gray-400">
                       <p className="mb-1">No transactions yet.</p>
                       <p className="text-xs">Download a CSV from your bank and click Import CSV above.</p>
                     </td>
                   </tr>
-                ) : transactions.map(tx => (
+                ) : displayed.map(tx => (
                   <tr key={tx.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{tx.date}</td>
                     <td className="px-4 py-3 font-medium text-gray-900 max-w-xs truncate">{tx.description}</td>
@@ -244,6 +263,18 @@ export default function TransactionsPage() {
                           <Badge variant={classVariant[tx.classification] || 'muted'}>{tx.classification}</Badge>
                           {tx.is_manual && <span className="text-xs text-indigo-400" title="Manually set">✎</span>}
                         </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {editingId === tx.id ? (
+                        <select value={editCategory} onChange={e => setEditCategory(e.target.value)} className={selectCls}>
+                          <option value="">None</option>
+                          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      ) : tx.category ? (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{tx.category}</span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -267,7 +298,7 @@ export default function TransactionsPage() {
                         </div>
                       ) : (
                         <button
-                          onClick={() => { setEditingId(tx.id); setEditClass(tx.classification); setEditProject(tx.project_id || '') }}
+                          onClick={() => { setEditingId(tx.id); setEditClass(tx.classification); setEditProject(tx.project_id || ''); setEditCategory(tx.category || '') }}
                           className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md"
                         >
                           <Pencil size={13} />
@@ -280,7 +311,8 @@ export default function TransactionsPage() {
             </table>
           </div>
           <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 text-xs text-gray-400">
-            {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+            {displayed.length} of {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+            {categoryFilter && ` · filtered by ${categoryFilter}`}
           </div>
         </div>
       </div>

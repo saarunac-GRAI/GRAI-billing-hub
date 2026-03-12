@@ -49,7 +49,7 @@ export async function DELETE(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   const supabase = createAdminClient()
-  const { id, classification, project_id } = await request.json()
+  const { id, classification, project_id, category } = await request.json()
 
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
@@ -58,6 +58,7 @@ export async function PATCH(request: NextRequest) {
     .update({
       classification,
       project_id: project_id || null,
+      category: category || null,
       is_manual: true,
     })
     .eq('id', id)

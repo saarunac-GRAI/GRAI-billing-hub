@@ -151,6 +151,7 @@ export interface Transaction {
   merchant_name: string | null
   description: string
   category_raw: string[] | null
+  category: string | null
   project_id: string | null
   classification: TransactionClassification
   matched_rule_id: string | null
@@ -167,6 +168,7 @@ export interface ClassificationRule {
   keyword: string
   project_id: string | null
   classification: 'project' | 'personal'
+  category: string | null
   priority: number
   created_at: string
   project?: Project
