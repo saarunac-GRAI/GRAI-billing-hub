@@ -246,7 +246,7 @@ export default function ReportsPage() {
                 ? <div className="h-[220px] flex items-center justify-center text-gray-400">Loading...</div>
                 : txReport?.byProject?.length
                   ? <ProjectPieChart projects={txReport.byProject.map(p => ({
-                      project: { name: p.name, color: p.color },
+                      project: { id: '', name: p.name, color: p.color, description: null, created_at: '', updated_at: '' } as any,
                       projectName: p.name,
                       monthlyCost: p.amount,
                       yearlyCost: p.amount * 12,
